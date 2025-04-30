@@ -1,0 +1,86 @@
+#!/bin/sh -e
+##:
+#h: Usage: inventory { -V | [CATEGORY] }
+#h:
+#h: List inventory files in your projects. List places where to find
+#h: the files in index files $INVENTORY_INDEXES. Format:
+#h:
+#h:   CATEGORY  [PROJECT,]PATH   WILDCARD
+#h:
+#h: Multiple fiels can be specified in $INVENTORY_INDEXES, projects
+#h: are searched for with getprj(1).
+#h:
+#h: Environment variables: INVENTORY_INDEXES
+##:
+inventory() {
+    if test ! -n "${1}"; then
+        inventory_list_categories
+        return 0
+    fi
+    inventory_list_files "$1"
+}
+# --------------------------------------------------------------------
+inventory_list_files() {
+    local category wildcard directory
+    inventory_list_directories "$1" | while read -r category wildcard directory
+    do
+        if test ! -d "${directory}"; then
+            echo >&2 "warning: Directory not found: ${directory}"
+            continue
+        fi
+        find "${directory}" \
+             -name "${wildcard}" \
+             -exec printf '%-10s %s\n' "${category}" '{}' ';'
+    done
+}
+inventory_list_directories() {
+    local category directory wildcard project wanted_category="$1"
+    local project_directory
+    inventory_list_index | while read -r category directory wildcard
+    do
+        if test @"${wanted_category:-all}" = @"all"; then
+            true
+        elif test @"${wanted_category}" = @"${category}"; then
+            true
+        else
+            continue
+        fi
+        
+        project="$(  echo "${directory}" | sed -n 's|,.*||p')"
+        directory="$(echo "${directory}" | sed    's|^[^,]*,||')"
+        if test -n "${project}" && test ! -n "${GETPRJ_LOADED}"; then
+            echo >&2 "warning: ${project}: Please install getprj."
+            continue
+        fi
+        if test -n "${project}"; then
+            project_directory="$(getprj "${project}")"
+            if test ! -n "${project_directory}"; then
+                continue
+            fi
+            directory="${project_directory}/${directory}"
+        fi
+        printf '%-10s %s %s\n' "${category}" "${wildcard:-*.md}" "${directory}" 
+    done
+}
+inventory_list_categories() {
+    inventory_list_index | sed 's| .*||' | sort -u
+}
+inventory_list_index() {
+    local f
+    for f in ${INVENTORY_INDEXES}; do
+        test ! -f "${f}" || sed 's|\#.*||;/^ *$/d' "${f}"
+    done
+}
+# --------------------------------------------------------------------
+if which getprj >/dev/null 2>&1; then
+    . getprj
+    GETPRJ_LOADED=y
+fi
+if test @"${SCRNAME:-$(basename "$0")}" = @"inventory"; then
+    MSYS_NO_PATHCONV=1
+    case "${1}" in
+        -h|--help) sed -n 's/^ *#h: \{0,1\}//p' "$0";;
+        -*V*)      echo "INVENTORY_INDEXES : ${INVENTORY_INDEXES}"; exit 0;;
+        *)         inventory "$@"; exit 0;;
+    esac
+fi
