@@ -1,37 +1,57 @@
 #!/bin/sh -e
 ##:
-#h: Usage: inventory { -V | [CATEGORY] }
+#h: Usage: inventory { -V | [CATEGORY] [NUM] }
 #h:
 #h: List inventory files in your projects. List places where to find
 #h: the files in index files $INVENTORY_INDEXES. Format:
 #h:
 #h:   CATEGORY  [PROJECT,]PATH   WILDCARD
+#h:   CATEGORY  URL
 #h:
 #h: Multiple fiels can be specified in $INVENTORY_INDEXES, projects
 #h: are searched for with getprj(1).
 #h:
-#h: Environment variables: INVENTORY_INDEXES
+#h: Environment variables: INVENTORY_INDEXES BROWSER EDITOR
 ##:
 inventory() {
     if test ! -n "${1}"; then
         inventory_list_categories
         return 0
     fi
-    inventory_list_files "$1"
+    if test ! -n "${2}"; then
+        inventory_list_files "$1"
+        return 0
+    fi
+    local file="$(inventory_list_files "$1" | sed -n "${2}s|^\s*[0-9]*\s[^ ]* *||p")"
+    if test ! -n "${file}"; then
+        echo >&2 "error: $1 $2: Not found."
+        return 1
+    fi
+    case "${file}" in
+        *://*) ${BROWSER:-xdg-open} "${file}" ;;
+        *)     ${EDITOR:-vi}        "${file}" ;;
+    esac
 }
 # --------------------------------------------------------------------
 inventory_list_files() {
     local category wildcard directory
     inventory_list_directories "$1" | while read -r category wildcard directory
     do
-        if test ! -d "${directory}"; then
-            echo >&2 "warning: Directory not found: ${directory}"
-            continue
-        fi
-        find "${directory}" \
-             -name "${wildcard}" \
-             -exec printf '%-10s %s\n' "${category}" '{}' ';'
-    done
+        case "${directory}" in
+            *://*)
+                printf '%-10s %s\n' "${category}" "${directory}"
+                ;;
+            *)
+                if test ! -d "${directory}"; then
+                    echo >&2 "warning: Directory not found: ${directory}"
+                    continue
+                fi
+                find "${directory}" \
+                     -name "${wildcard}" \
+                     -exec printf '%-10s %s\n' "${category}" '{}' ';'
+                ;;
+        esac
+    done | nl
 }
 inventory_list_directories() {
     local category directory wildcard project wanted_category="$1"

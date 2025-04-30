@@ -6,19 +6,18 @@ Script for listing inventory files in your projects, uses getprj(1).
 
 inventory
 
-    Usage: inventory { -V | [CATEGORY] }
+    Usage: inventory { -V | [CATEGORY] [NUM] }
     
     List inventory files in your projects. List places where to find
     the files in index files $INVENTORY_INDEXES. Format:
     
       CATEGORY  [PROJECT,]PATH   WILDCARD
+      CATEGORY  URL
     
     Multiple fiels can be specified in $INVENTORY_INDEXES, projects
     are searched for with getprj(1).
     
-    Environment variables: INVENTORY_INDEXES
-
-## Style guide
+    Environment variables: INVENTORY_INDEXES BROWSER EDITOR
 
 ## Collaborating
 
