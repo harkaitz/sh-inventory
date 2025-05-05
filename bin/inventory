@@ -28,8 +28,8 @@ inventory() {
         return 1
     fi
     case "${file}" in
-        *://*) ${BROWSER:-xdg-open} "${file}" ;;
-        *)     ${EDITOR:-vi}        "${file}" ;;
+        http://*|https://*|ftp://*) ${BROWSER:-xdg-open} "${file}" ;;
+        *) ${EDITOR:-vi} "${file}" ;;
     esac
 }
 # --------------------------------------------------------------------
@@ -38,7 +38,7 @@ inventory_list_files() {
     inventory_list_directories "$1" | while read -r category wildcard directory
     do
         case "${directory}" in
-            *://*)
+            http://*|https://*|ftp://*)
                 printf '%-10s %s\n' "${category}" "${directory}"
                 ;;
             *)
